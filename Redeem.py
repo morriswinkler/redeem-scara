@@ -422,13 +422,18 @@ class Redeem:
                 logging.info("Home position will be recalculated...")
 
                 # convert home_pos to effector space
-                A = printer.path_planner.home_pos['X']
-                B = printer.path_planner.home_pos['Y']
-                C = printer.path_planner.home_pos['Z']
+                #A = printer.path_planner.home_pos['X']
+                #B = printer.path_planner.home_pos['Y']
+                #C = printer.path_planner.home_pos['Z']
 
                 #z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
-                xyz = Scara.forward_kinematics(A, B, C) # effector position
+                #xyz = Scara.forward_kinematics(A, B, C) # effector position
 
+                # don't cpnvert home_pos to effector spac
+                # home offset is defined in cartesian space
+
+                xyz = np.array([printer.path_planner.home_pos['X'],printer.path_planner.home_pos['Y'],printer.path_planner.home_pos['Z']])
+                
                 # The default home_pos, provided above, is based on effector space
                 # coordinates for carriage positions. We need to transform these to
                 # get where the effector actually is.

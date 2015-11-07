@@ -138,7 +138,7 @@ class Path:
             if hasattr(self.prev, "end_ABC"):
                 self.start_ABC = self.prev.end_ABC
             else:
-                self.start_XYZ = Scara.inverse_kinematics2(cur_pos[0], cur_pos[1],
+                self.start_ABC = Scara.inverse_kinematics(cur_pos[0], cur_pos[1],
                                          cur_pos[2])
             # Find the next angle positions
             self.end_ABC = Scara.inverse_kinematics(cur_pos[0] + vec[0],
@@ -179,7 +179,7 @@ class Path:
             # represents in cartesian.
             start_xyz = Scara.forward_kinematics(self.start_ABC[0], self.start_ABC[1],
                                          self.start_ABC[2])
-            end_xyz = Scara.forward_kinematics2(self.end_ABC[0], self.end_ABC[1],
+            end_xyz = Scara.forward_kinematics(self.end_ABC[0], self.end_ABC[1],
                                        self.end_ABC[2])
             ret_vec[:3] = end_xyz - start_xyz
 
@@ -212,10 +212,10 @@ class Path:
 
     def needs_splitting(self):
         """ Return true if this is a delta segment and longer than 1 mm """
-        if Path.axis.config == Path.AXIS_CONFIG_DELTA:
+        if Path.axis_config == Path.AXIS_CONFIG_DELTA:
             return (self.get_magnitude() > self.split_size
                     and np.any(self.vec[:2])) # If there is no movement along the XY axis (Z+extruders) only, don't split.
-        elif Path.axis.config == Path.AXIS_CONFIG_SCARA:
+        elif Path.axis_config == Path.AXIS_CONFIG_SCARA:
             return (self.get_magnitude() > self.split_size)
         else:
             return False

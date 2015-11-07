@@ -286,13 +286,19 @@ class PathPlanner:
             # homing was performed in cartesian mode
             # need to convert back to delta
 
-            A = path_center['X']
-            B = path_center['Y']
-            C = path_center['Z']
+            # A = path_center['X']
+            # B = path_center['Y']
+            # C = path_center['Z']
 
             #z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
-            xyz = Scara.forward_kinematics(A, B, C) # effector position
+            #xyz = Scara.forward_kinematics(A, B, C) # effector position
             #xyz[2] += z_offset
+
+            # don't cpnvert home_pos to effector spac
+            # home offset is defined in cartesian space
+
+            xyz = np.array([path_center['X'], path_center['Y'], path_center['Z']])
+
             path = {'X':xyz[0], 'Y':xyz[1], 'Z':xyz[2]}
 
             p = G92Path(path, speed)
