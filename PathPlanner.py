@@ -27,6 +27,7 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 import logging
 from Path import Path, CompensationPath, AbsolutePath, RelativePath, G92Path
 from Delta import Delta
+from Scara import Scara
 from Printer import Printer
 import numpy as np
 
@@ -75,12 +76,12 @@ class PathPlanner:
         self.native_planner.setPrintAcceleration(tuple([float(self.printer.acceleration[i]) for i in range(3)]))
         self.native_planner.setTravelAcceleration(tuple([float(self.printer.acceleration[i]) for i in range(3)]))
         self.native_planner.setAxisStepsPerMeter(tuple([long(Path.steps_pr_meter[i]) for i in range(3)]))
-        self.native_planner.setMaxFeedrates(tuple([float(Path.max_speeds[i]) for i in range(3)]))	
+        self.native_planner.setMaxFeedrates(tuple([float(Path.max_speeds[i]) for i in range(3)]))
         self.native_planner.setMaxJerk(self.printer.maxJerkXY / 1000.0, self.printer.maxJerkZ /1000.0)
         self.native_planner.setPrintMoveBufferWait(int(self.printer.print_move_buffer_wait))
         self.native_planner.setMinBufferedMoveTime(int(self.printer.min_buffered_move_time))
         self.native_planner.setMaxBufferedMoveTime(int(self.printer.max_buffered_move_time))
-        
+
 
         #Setup the extruders
         for i in range(Path.NUM_AXES - 3):
@@ -126,7 +127,7 @@ class PathPlanner:
 
     def fire_sync_event(self):
         """ Unclogs any threads waiting for a sync """
-        
+
 
     def force_exit(self):
         self.native_planner.stopThread(True)
@@ -152,7 +153,7 @@ class PathPlanner:
     def _home_internal(self, axis):
         """ Private method for homing a set or a single axis """
         logging.debug("homing internal " + str(axis))
-            
+
 
         path_search = {}
         path_backoff = {}
@@ -180,12 +181,12 @@ class PathPlanner:
             backoff_length = -np.sign(path_search[a]) * Path.home_backoff_offset[Path.axis_to_index(a)]
             path_backoff[a] = backoff_length;
             path_fine_search[a] = -backoff_length * 1.2;
-            
+
             speed = min(abs(speed), abs(Path.home_speed[Path.axis_to_index(a)]))
             fine_search_speed =  min(abs(speed), abs(Path.home_backoff_speed[Path.axis_to_index(a)]))
-            
+
             logging.debug("axis: "+str(a))
-        
+
         logging.debug("Search: %s" % path_search)
         logging.debug("Backoff to: %s" % path_backoff)
         logging.debug("Fine search: %s" % path_fine_search)
@@ -215,29 +216,29 @@ class PathPlanner:
         self.add_path(p)
 
         return path_center, speed
-        
+
     def _go_to_home(self, axis):
         """
         go to the designated home position
-        do this as a separate call from _home_internal due to delta platforms 
+        do this as a separate call from _home_internal due to delta platforms
         performing home in cartesian mode
         """
-        
+
         path_home = {}
-        
+
         speed = Path.home_speed[0]
 
         for a in axis:
             path_home[a] = self.home_pos[a]
             speed = min(abs(speed), abs(Path.home_speed[Path.axis_to_index(a)]))
-            
+
         logging.debug("Home: %s" % path_home)
-            
+
         # Move to home position
         p = AbsolutePath(path_home, speed, True, False, False, False)
         self.add_path(p)
         self.wait_until_done()
-        
+
         return
 
     def home(self, axis):
@@ -264,19 +265,43 @@ class PathPlanner:
             Az = path_center['X']
             Bz = path_center['Y']
             Cz = path_center['Z']
-            
+
             z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
             xyz = Delta.forward_kinematics2(Az, Bz, Cz) # effector position
             xyz[2] += z_offset
             path = {'X':xyz[0], 'Y':xyz[1], 'Z':xyz[2]}
-            
+
             p = G92Path(path, speed)
             self.add_path(p)
             self.wait_until_done()
-            
+        # For scar, switch also to cartesian when homing
+        elif Path.axis_config == Path.AXIS_CONFIG_SCARA:
+            # TODO: implement individual homing ( needs to take care of position after homing)
+            if 0 < len({"X", "Y", "Z"}.intersection(set(axis))) < 3:
+                axis = list(set(axis).union({"X", "Y", "Z"}))	# For now Scaras must home all axes. Than can changed
+            Path.axis_config = Path.AXIS_CONFIG_XY
+            path_center, speed = self._home_internal(axis)
+            Path.axis_config = Path.AXIS_CONFIG_SCARA
+
+            # homing was performed in cartesian mode
+            # need to convert back to delta
+
+            A = path_center['X']
+            B = path_center['Y']
+            C = path_center['Z']
+
+            #z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
+            xyz = Scara.forward_kinematics(A, B, C) # effector position
+            #xyz[2] += z_offset
+            path = {'X':xyz[0], 'Y':xyz[1], 'Z':xyz[2]}
+
+            p = G92Path(path, speed)
+            self.add_path(p)
+            self.wait_until_done()
+
         else:
             self._home_internal(axis)
-            
+
         # go to the designated home position
         self._go_to_home(axis)
 
@@ -284,7 +309,7 @@ class PathPlanner:
         Path.backlash_reset()
 
         logging.debug("homing done for " + str(axis))
-            
+
         return
 
     def probe(self, z):
@@ -304,13 +329,13 @@ class PathPlanner:
         import struct
         import mmap
 
-        PRU_ICSS = 0x4A300000 
+        PRU_ICSS = 0x4A300000
         PRU_ICSS_LEN = 512*1024
 
         RAM2_START = 0x00012000
 
-        with open("/dev/mem", "r+b") as f:	       
-            ddr_mem = mmap.mmap(f.fileno(), PRU_ICSS_LEN, offset=PRU_ICSS) 
+        with open("/dev/mem", "r+b") as f:
+            ddr_mem = mmap.mmap(f.fileno(), PRU_ICSS_LEN, offset=PRU_ICSS)
             shared = struct.unpack('LLLL', ddr_mem[RAM2_START:RAM2_START+16])
             steps_remaining = shared[3]
         logging.info("Steps remaining : "+str(steps_remaining))
@@ -338,26 +363,26 @@ class PathPlanner:
             path_batch = new.get_delta_segments()
             # Construct a batch
             batch_array = np.zeros(shape=(len(path_batch)*2*4),dtype=np.float64)     # Change this to reflect NUM_AXIS.
-         
+
             for maj_index, path in enumerate(path_batch):
                 for subindex in range(4):  # this needs to be NUM_AXIS
                     batch_array[(maj_index * 8) + subindex] = path.start_pos[subindex]
                     batch_array[(maj_index * 8) + 4 + subindex] = path.stepper_end_pos[subindex]
-                
+
                 self.prev = path
                 self.prev.unlink()
 
             # Queue the entire batch at once.
             self.printer.ensure_steppers_enabled()
             self.native_planner.queueBatchMove(batch_array, new.speed, bool(new.cancelable), bool(True))
-                
+
             # Do not add the original segment
             new.unlink()
-            return 
+            return
 
         if not new.is_G92():
             self.printer.ensure_steppers_enabled()
-            #push this new segment   
+            #push this new segment
             self.native_planner.queueMove(tuple(new.start_pos[:4]),
                                       tuple(new.stepper_end_pos[:4]), new.speed,
                                       bool(new.cancelable),

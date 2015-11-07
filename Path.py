@@ -1,6 +1,6 @@
-""" 
-Path.py - A single movement from one point to another 
-All coordinates  in this file is in meters. 
+"""
+Path.py - A single movement from one point to another
+All coordinates  in this file is in meters.
 
 Author: Elias Bakken
 email: elias(dot)bakken(at)gmail(dot)com
@@ -11,12 +11,12 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  Redeem is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
@@ -24,6 +24,7 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 import numpy as np
 
 from Delta import Delta
+from Scara import Scara
 from BedCompensation import BedCompensation
 import logging
 
@@ -34,12 +35,13 @@ class Path:
     AXIS_CONFIG_H_BELT = 1
     AXIS_CONFIG_CORE_XY = 2
     AXIS_CONFIG_DELTA = 3
+    AXIS_CONFIG_SCARA = 4
 
     ABSOLUTE = 0
     RELATIVE = 1
     G92 = 2
 
-    # Numpy array type used throughout    
+    # Numpy array type used throughout
     DTYPE = np.float64
 
     # Precalculate the H-belt matrix
@@ -48,11 +50,11 @@ class Path:
 
     # Precalculate the CoreXY matrix
     # A - motor X (top right), B - motor Y (top left)
-    # home located in bottom right corner    
+    # home located in bottom right corner
     matrix_XY = np.matrix('1.0 1.0; 1.0 -1.0')
     matrix_XY_inv = np.linalg.inv(matrix_XY)
 
-    # Unlevel bed compensation. 
+    # Unlevel bed compensation.
     matrix_bed_comp     = np.identity(3)
     matrix_bed_comp_inv = np.linalg.inv(matrix_bed_comp)
 
@@ -131,6 +133,18 @@ class Path:
                                                cur_pos[1] + vec[1],
                                                cur_pos[2] + vec[2])
             ret_vec[:3] = self.end_ABC - self.start_ABC
+        if Path.axis_config == Path.AXIS_CONFIG_SCARA:
+            # Subtract the current angle positions
+            if hasattr(self.prev, "end_ABC"):
+                self.start_ABC = self.prev.end_ABC
+            else:
+                self.start_XYZ = Scara.inverse_kinematics2(cur_pos[0], cur_pos[1],
+                                         cur_pos[2])
+            # Find the next angle positions
+            self.end_ABC = Scara.inverse_kinematics(cur_pos[0] + vec[0],
+                                       cur_pos[1] + vec[1],
+                                       cur_pos[2] + vec[2])
+            ret_vec[:3] = self.end_ABC - self.start_ABC
 
         # Apply Automatic bed compensation
         if self.use_bed_matrix:
@@ -156,6 +170,17 @@ class Path:
                                                  self.start_ABC[2])
             end_xyz = Delta.forward_kinematics2(self.end_ABC[0], self.end_ABC[1],
                                                self.end_ABC[2])
+            ret_vec[:3] = end_xyz - start_xyz
+        if Path.axis_config == Path.AXIS_CONFIG_SCARA:
+            # Find the next angle positions
+            self.end_ABC = self.start_ABC + vec[:3]
+
+            # We have the angle translations and need to find what that
+            # represents in cartesian.
+            start_xyz = Scara.forward_kinematics(self.start_ABC[0], self.start_ABC[1],
+                                         self.start_ABC[2])
+            end_xyz = Scara.forward_kinematics2(self.end_ABC[0], self.end_ABC[1],
+                                       self.end_ABC[2])
             ret_vec[:3] = end_xyz - start_xyz
 
         # Apply Automatic bed compensation
@@ -187,9 +212,13 @@ class Path:
 
     def needs_splitting(self):
         """ Return true if this is a delta segment and longer than 1 mm """
-        return (Path.axis_config == Path.AXIS_CONFIG_DELTA 
-            and self.get_magnitude() > self.split_size
-            and np.any(self.vec[:2])) # If there is no movement along the XY axis (Z+extruders) only, don't split.
+        if Path.axis.config == Path.AXIS_CONFIG_DELTA:
+            return (self.get_magnitude() > self.split_size
+                    and np.any(self.vec[:2])) # If there is no movement along the XY axis (Z+extruders) only, don't split.
+        elif Path.axis.config == Path.AXIS_CONFIG_SCARA:
+            return (self.get_magnitude() > self.split_size)
+        else:
+            return False
 
     def get_magnitude(self):
         """ Returns the magnitde in XYZ dim """
@@ -207,10 +236,10 @@ class Path:
         num_segments = np.ceil(self.get_magnitude()/self.split_size)+1
         vals = np.transpose([
                     np.linspace(
-                        self.start_pos[i], 
-                        self.ideal_end_pos[i], 
+                        self.start_pos[i],
+                        self.ideal_end_pos[i],
                         num_segments
-                        ) for i in xrange(4)]) 
+                        ) for i in xrange(4)])
         vals = np.delete(vals, 0, axis=0)
         vec_segments = [dict(zip(["X", "Y", "Z", "E"], list(val))) for val in vals]
         path_segments = []
@@ -227,7 +256,7 @@ class Path:
             path_segments.extend(new_segments)
 
         return path_segments
-        
+
 
     def __str__(self):
         """ The vector representation of this path segment """
@@ -259,7 +288,7 @@ class AbsolutePath(Path):
         prev.next = self
         self.start_pos = prev.end_pos
 
-        # Make the start, end and path vectors. 
+        # Make the start, end and path vectors.
         self.end_pos = np.copy(self.start_pos)
         self.ideal_end_pos = np.copy(prev.ideal_end_pos)
         for index, axis in enumerate(Path.AXES):
@@ -389,7 +418,7 @@ class CompensationPath(Path):
         self.stepper_end_pos = np.copy(prev.stepper_end_pos)
         self.rounded_vec = np.zeros(Path.NUM_AXES, dtype=Path.DTYPE)
 
-        # Generate the vector 
+        # Generate the vector
         self.vec = self.axes
 
         # Compute stepper translation
@@ -400,4 +429,3 @@ class CompensationPath(Path):
             logging.error("Compensation Path Invalid: "+str(self.start_pos)+" to "+str(self.axes))
             self.num_steps = np.zeros(Path.NUM_AXES)
             self.delta = np.zeros(Path.NUM_AXES)
-

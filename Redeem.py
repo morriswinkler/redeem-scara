@@ -57,6 +57,7 @@ from Printer import Printer
 from GCodeProcessor import GCodeProcessor
 from PluginsController import PluginsController
 from Delta import Delta
+from Scara import Scara
 from Enable import Enable
 from PWM import PWM
 
@@ -91,12 +92,12 @@ class Redeem:
 
         printer = Printer()
         self.printer = printer
-        
+
         # check for config files
         if not os.path.exists("/etc/redeem/default.cfg"):
             logging.error("/etc/redeem/default.cfg does not exist, this file is required for operation")
             sys.exit() # maybe use something more graceful?
-            
+
         # Parse the config files.
         printer.config = CascadingConfigParser(
             ['/etc/redeem/default.cfg', '/etc/redeem/printer.cfg',
@@ -230,7 +231,7 @@ class Redeem:
             if e != "HBP":
                 self.printer.heaters[e] = Extruder(
                                         self.printer.steppers[e],
-                                        self.printer.thermistors[e], 
+                                        self.printer.thermistors[e],
                                         self.printer.mosfets[e], e, onoff)
             else:
                 self.printer.heaters[e] = HBP(
@@ -339,7 +340,7 @@ class Redeem:
         printer.maxJerkXY = printer.config.getfloat('Planner', 'maxJerk_xy')
         printer.maxJerkZ = printer.config.getfloat('Planner', 'maxJerk_z')
         printer.maxJerkEH = printer.config.getfloat('Planner', 'maxJerk_eh')
-        
+
         printer.move_cache_size = printer.config.getfloat('Planner', 'move_cache_size')
         printer.print_move_buffer_wait = printer.config.getfloat('Planner', 'print_move_buffer_wait')
         printer.min_buffered_move_time = printer.config.getfloat('Planner', 'min_buffered_move_time')
@@ -393,22 +394,48 @@ class Redeem:
             if home_default:
                 logging.warning("Home position (home_*) set by soft limits or offset_*")
                 logging.info("Home position will be recalculated...")
-        
+
                 # convert home_pos to effector space
                 Az = printer.path_planner.home_pos['X']
                 Bz = printer.path_planner.home_pos['Y']
                 Cz = printer.path_planner.home_pos['Z']
-                
+
                 z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
                 xyz = Delta.forward_kinematics2(Az, Bz, Cz) # effector position
-                
-                # The default home_pos, provided above, is based on effector space 
-                # coordinates for carriage positions. We need to transform these to 
+
+                # The default home_pos, provided above, is based on effector space
+                # coordinates for carriage positions. We need to transform these to
                 # get where the effector actually is.
                 xyz[2] += z_offset
                 for i, a in enumerate(['X','Y','Z']):
                     printer.path_planner.home_pos[a] = xyz[i]
-                
+
+                logging.info("Home position = %s"%str(printer.path_planner.home_pos))
+
+        if Path.axis_config == Path.AXIS_CONFIG_SCARA:
+            if travel_default:
+                logging.warning("Axis travel (travel_*) set by soft limits, manual setup is recommended for a scara")
+            if center_default:
+                logging.warning("Axis offsets (offset_*) set by soft limits, manual setup is recommended for a scara")
+            if home_default:
+                logging.warning("Home position (home_*) set by soft limits or offset_*")
+                logging.info("Home position will be recalculated...")
+
+                # convert home_pos to effector space
+                A = printer.path_planner.home_pos['X']
+                B = printer.path_planner.home_pos['Y']
+                C = printer.path_planner.home_pos['Z']
+
+                #z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
+                xyz = Scara.forward_kinematics(A, B, C) # effector position
+
+                # The default home_pos, provided above, is based on effector space
+                # coordinates for carriage positions. We need to transform these to
+                # get where the effector actually is.
+                #xyz[2] += z_offset
+                for i, a in enumerate(['X','Y','Z']):
+                    printer.path_planner.home_pos[a] = xyz[i]
+
                 logging.info("Home position = %s"%str(printer.path_planner.home_pos))
 
         # Enable PWM and steppers
