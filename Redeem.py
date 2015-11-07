@@ -63,11 +63,25 @@ from PWM import PWM
 version = "1.0.4~Commando"
 
 # Default logging level is set to debug
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
+#logging.basicConfig(level=logging.DEBUG,
+#                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+#                    datefmt='%m-%d %H:%M')
+
+
+#
+# need to create a object type logger and use logger.info("msg") to stream to the syslog,
+#
 #syslog = logging.handlers.SysLogHandler(address = '/dev/log')
 #logging.addHandler(syslog)
+
+#
+# first step toward an log file mechnism
+#
+logging.basicConfig(filename="/var/log/redeem/redeem.log",
+                    level=logging.DEBUG,
+                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M')
+
 
 class Redeem:
 
