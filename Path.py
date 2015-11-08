@@ -234,6 +234,9 @@ class Path:
             return [self]
 
         num_segments = np.ceil(self.get_magnitude()/self.split_size)+1
+        logging.debug("Magnitude: "+str(self.get_magnitude()))
+        logging.debug("Split size: "+str(self.split_size))
+        logging.debug("Num segments: "+str(num_segments))
         vals = np.transpose([
                     np.linspace(
                         self.start_pos[i],
@@ -250,10 +253,8 @@ class Path:
                 path.set_prev(path_segments[-1])
             else:
                 path.set_prev(self.prev)
-            new_segments = path.get_delta_segments()
-
             # Stitch the new elements in
-            path_segments.extend(new_segments)
+            path_segments.append(path)
 
         return path_segments
 
