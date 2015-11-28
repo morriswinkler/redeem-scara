@@ -96,6 +96,7 @@ class Path:
         self.delta = None
         self.compensation = None
         self.split_size = 0.001
+        #self.split_size = 0.01
 
     def is_G92(self):
         """ Special path, only set the global position on this """
@@ -234,9 +235,9 @@ class Path:
             return [self]
 
         num_segments = np.ceil(self.get_magnitude()/self.split_size)+1
-        logging.debug("Magnitude: "+str(self.get_magnitude()))
-        logging.debug("Split size: "+str(self.split_size))
-        logging.debug("Num segments: "+str(num_segments))
+        # logging.debug("Magnitude: "+str(self.get_magnitude()))
+        # logging.debug("Split size: "+str(self.split_size))
+        # logging.debug("Num segments: "+str(num_segments))
         vals = np.transpose([
                     np.linspace(
                         self.start_pos[i],
@@ -266,6 +267,7 @@ class Path:
     @staticmethod
     def axis_to_index(axis):
         return Path.AXES.index(axis)
+        logging.debug("axis_to_index: %s" % Path.AXES.index(axis))
 
     @staticmethod
     def index_to_axis(index):
@@ -282,6 +284,7 @@ class AbsolutePath(Path):
     def __init__(self, axes, speed, cancelable=False, use_bed_matrix=True, use_backlash_compensation=True, enable_soft_endstops=True):
         Path.__init__(self, axes, speed, cancelable, use_bed_matrix, use_backlash_compensation, enable_soft_endstops)
         self.movement = Path.ABSOLUTE
+        logging.debug("Enter Absolute Path")
 
     def set_prev(self, prev):
         """ Set the previous path element """
@@ -289,8 +292,12 @@ class AbsolutePath(Path):
         prev.next = self
         self.start_pos = prev.end_pos
 
+        logging.debug("pref: %s", prev)
+        logging.debug("next: %s", self)
+
         # Make the start, end and path vectors.
         self.end_pos = np.copy(self.start_pos)
+        logging.debug("end_pos: %s", self.end_pos)
         self.ideal_end_pos = np.copy(prev.ideal_end_pos)
         for index, axis in enumerate(Path.AXES):
             if axis in self.axes:

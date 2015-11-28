@@ -14,31 +14,32 @@
 //#define STEPPER_X_DIRECTION     	1   //Set to 1 so that the motor direction is inversed
 	
 //Y	
-#define STEPPER_Y_STEP_BANK     	STEPPER_GPIO_1
-#define STEPPER_Y_STEP_PIN      	12
-#define STEPPER_Y_DIR_BANK      	STEPPER_GPIO_0
-#define STEPPER_Y_DIR_PIN       	22
+#define STEPPER_H_STEP_BANK     	STEPPER_GPIO_1
+#define STEPPER_H_STEP_PIN      	12
+#define STEPPER_H_DIR_BANK      	STEPPER_GPIO_0
+#define STEPPER_H_DIR_PIN       	22
 //#define STEPPER_Y_DIRECTION     	0   //Set to 1 so that the motor direction is inversed
-	
+
 //Z	
-#define STEPPER_Z_STEP_BANK     	STEPPER_GPIO_0
-#define STEPPER_Z_STEP_PIN      	23
-#define STEPPER_Z_DIR_BANK      	STEPPER_GPIO_0
-#define STEPPER_Z_DIR_PIN       	26
+#define STEPPER_E_STEP_BANK     	STEPPER_GPIO_0
+#define STEPPER_E_STEP_PIN      	23
+#define STEPPER_E_DIR_BANK      	STEPPER_GPIO_0
+#define STEPPER_E_DIR_PIN       	26
 //#define STEPPER_Z_DIRECTION     	0   //Set to 1 so that the motor direction is inversed
 	
 //E	
-#define STEPPER_E_STEP_BANK     	STEPPER_GPIO_1
-#define STEPPER_E_STEP_PIN      	28
-#define STEPPER_E_DIR_BANK      	STEPPER_GPIO_1
-#define STEPPER_E_DIR_PIN       	15
+#define STEPPER_Z_STEP_BANK     	STEPPER_GPIO_1
+#define STEPPER_Z_STEP_PIN      	28
+#define STEPPER_Z_DIR_BANK      	STEPPER_GPIO_1
+#define STEPPER_Z_DIR_PIN       	15
 //#define STEPPER_E_DIRECTION     	1   //Set to 1 so that the motor direction is inversed
-	
+
+
 //H	
-#define STEPPER_H_STEP_BANK     	STEPPER_GPIO_1
-#define STEPPER_H_STEP_PIN      	13
-#define STEPPER_H_DIR_BANK      	STEPPER_GPIO_1
-#define STEPPER_H_DIR_PIN       	14
+#define STEPPER_Y_STEP_BANK     	STEPPER_GPIO_1
+#define STEPPER_Y_STEP_PIN      	13
+#define STEPPER_Y_DIR_BANK      	STEPPER_GPIO_1
+#define STEPPER_Y_DIR_PIN       	14
 //#define STEPPER_H_DIRECTION     	1   //Set to 1 so that the motor direction is inversed
 
 //* End stops pins

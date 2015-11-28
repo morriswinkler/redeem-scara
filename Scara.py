@@ -4,9 +4,9 @@ import math
 
 
 class Scara:
-    # TowerOffset
-    X_toweroffset = 100.0
-    Y_toweroffset = -90.0
+    # TowerOffset in meter
+    X_toweroffset = 100
+    Y_toweroffset = -90
 
     # linkage lenght
     Ltow = 135.0         # the base tower height;
@@ -23,8 +23,8 @@ class Scara:
         for A, B, and C
         """
         # add tower offset
-        coord = np.array([X - Scara.X_toweroffset, Y + -Scara.Y_toweroffset, Z])
-
+        coordReal = np.array([X, Y, Z])
+        coord = np.array([round(X*1000,0) - Scara.X_toweroffset, round(Y*1000,0) + -Scara.Y_toweroffset, round(Z*1000,0)])
         # http://www.deltatau.com/Common/technotes/SCARA%20Robot%20Kinematics.pdf
 
         # calculate y distance from tower to the target x,y
@@ -37,7 +37,7 @@ class Scara:
         A = math.acos((dX**2 + dZ**2 - Scara.L1**2 - Scara.L2**2)/(2*Scara.L1*Scara.L2))
 
 
-        # angle between tower and L1
+         # angle between tower and L1
         b_1 = math.atan2(dX, dZ)
 
         b_2 = math.acos((dX**2 + dZ**2 + Scara.L1**2 - Scara.L2**2)/(2*Scara.L1*math.sqrt(dX**2 + dZ**2)))
@@ -48,7 +48,10 @@ class Scara:
         # the tower rotation is inverted
         C = -math.atan(coord[0] / coord[1])
 
-        return np.array([math.degrees(A), math.degrees(B), math.degrees(C)])
+        ABC = np.array([math.degrees(A), math.degrees(B), math.degrees(C)])
+        logging.debug("Inverse XYZ: %s" % coordReal)
+        logging.debug("Inverse ABC: %s" % ABC)
+        return ABC
 
     @staticmethod
     def forward_kinematics(A, B, C):
@@ -56,6 +59,8 @@ class Scara:
         Forward kinematics for SCARA Bot. Returns the X, Y, Z point given
         angle translations
         """
+        # log before the angles are converted to radians
+        logging.debug("Forward ABC: %s" % np.array([A, B, C]))
 
         # convert angles in radians
         A = math.radians(A)
@@ -67,9 +72,15 @@ class Scara:
 
         # calc x, y, c coords
         # x is inverted caused becaus angle C is inverted
-        x = round(distXY*math.sin(C-math.pi),2) + Scara.X_toweroffset;
-        y = round(distXY*math.cos(C),2) - -Scara.Y_toweroffset;
-        z = round(Scara.L1*math.cos(B) + Scara.L2*math.cos(A+B),2) + Scara.Ltow;
+        # all elements are converted from mm to m / 1000
+        x = (round(distXY*math.sin(C-math.pi),2) + Scara.X_toweroffset)/1000;
+        y = (round(distXY*math.cos(C),2) - -Scara.Y_toweroffset)/1000;
+        z = (round(Scara.L1*math.cos(B) + Scara.L2*math.cos(A+B),2) + Scara.Ltow)/1000;
+
+
+        logging.debug("Forward XYZ: %s" % np.array([x, y, z]))
+
+
 
         return np.array([x, y, z])
 

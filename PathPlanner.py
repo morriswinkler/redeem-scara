@@ -235,9 +235,9 @@ class PathPlanner:
         logging.debug("Home: %s" % path_home)
 
         # Move to home position
-        p = AbsolutePath(path_home, speed, True, False, False, False)
-        self.add_path(p)
-        self.wait_until_done()
+        # p = AbsolutePath(path_home, speed, True, False, False, False)
+        # self.add_path(p)
+        # self.wait_until_done()
 
         return
 
@@ -286,20 +286,22 @@ class PathPlanner:
             # homing was performed in cartesian mode
             # need to convert back to delta
 
-            # A = path_center['X']
-            # B = path_center['Y']
-            # C = path_center['Z']
+            A = path_center['X']
+            B = path_center['Y']
+            C = path_center['Z']
 
             #z_offset = Delta.vertical_offset(Az,Bz,Cz) # vertical offset
-            #xyz = Scara.forward_kinematics(A, B, C) # effector position
+            # xyz = Scara.inverse_kinematics(A, B, C) # effector position
+            # logging.debug("HomeXYZ: %s", xyz)
             #xyz[2] += z_offset
 
             # don't cpnvert home_pos to effector spac
             # home offset is defined in cartesian space
 
-            xyz = np.array([path_center['X'], path_center['Y'], path_center['Z']])
+            # xyz = np.array([path_center['X'], path_center['Y'], path_center['Z']])
 
-            path = {'X':xyz[0], 'Y':xyz[1], 'Z':xyz[2]}
+            #path = {'X':xyz[0], 'Y':xyz[1], 'Z':xyz[2]}
+            path = {A, B, C}
 
             p = G92Path(path, speed)
             self.add_path(p)
@@ -356,7 +358,7 @@ class PathPlanner:
         """ This code, and the native planner, needs to be updated for reach. """
         # Link to the previous segment in the chain
         new.set_prev(self.prev)
-
+        logging.debug("after set.prev")
         if new.compensation is not None:
             # Apply a backlash compensation move
 #           CompensationPath(new.compensation, new.speed, False, False, False))
@@ -365,8 +367,11 @@ class PathPlanner:
                                           bool(new.cancelable),
                                           False)
 
+        logging.debug("Just before calc segments")
         if new.needs_splitting():
+
             path_batch = new.get_delta_segments()
+            logging.debug("Batch Array %s", path_batch)
             # Construct a batch
             batch_array = np.zeros(shape=(len(path_batch)*2*4),dtype=np.float64)     # Change this to reflect NUM_AXIS.
 
@@ -382,6 +387,7 @@ class PathPlanner:
             self.printer.ensure_steppers_enabled()
             self.native_planner.queueBatchMove(batch_array, new.speed, bool(new.cancelable), bool(True))
 
+            logging.debug("Batch Array %s", batch_array)
             # Do not add the original segment
             new.unlink()
             return
