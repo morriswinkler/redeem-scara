@@ -31,7 +31,7 @@ from ShiftRegister import ShiftRegister
 class Stepper(object):
 
     all_steppers = list()
-    
+
     def __init__(self, stepPin, dirPin, faultPin, dac_channel, shiftreg_nr, name, internalStepPin, internalDirPin):
         """ Init """
         self.dac_channel     = dac_channel  # Which channel on the dac is connected to this stepper
@@ -39,10 +39,10 @@ class Stepper(object):
         self.dirPin          = dirPin
         self.faultPin        = faultPin
         self.name            = name
-        self.enabled 	     = False	    
-        self.in_use          = False        
-        self.steps_pr_mm     = 1            
-        self.microsteps      = 1.0          
+        self.enabled 	     = False
+        self.in_use          = False
+        self.steps_pr_mm     = 1
+        self.microsteps      = 1.0
         self.direction       = 1
         self.internalStepPin = (1 << internalStepPin)
         self.internalDirPin  = (1 << internalDirPin)
@@ -64,7 +64,7 @@ class Stepper(object):
         """ Set the number of steps pr mm. """
         self.steps_pr_mm = steps_pr_mm
         self.mmPrStep = 1.0 / (steps_pr_mm * self.microsteps)
-    
+
     def get_steps_pr_meter(self):
         """ Get the number of steps pr meter """
         return self.steps_pr_mm*self.microsteps * 1000.0
@@ -72,7 +72,7 @@ class Stepper(object):
     def get_step_pin(self):
         """ The pin that steps, it looks like GPIO1_31 aso """
         return self.internalStepPin
-    
+
     def get_dir_pin(self):
         """ Get the dir pin shifted into position """
         return self.internalDirPin
@@ -87,8 +87,8 @@ class Stepper(object):
 
 
 """
-The bits in the shift register are as follows (Rev B1): 
-Bit - name   - init val 
+The bits in the shift register are as follows (Rev B1):
+Bit - name   - init val
 D0 = -		 = X (or servo enable)
 D1 = CFG5    = 0 (Chopper blank time)
 D2 = CFG4    = 0 (Choppper hysteresis)
@@ -106,7 +106,7 @@ class Stepper_00B1(Stepper):
         self.dac    = PWM_DAC(dac_channel)
         self.state  = 0 # The initial state of shift register
 
-    def set_microstepping(self, value, force_update=False):                
+    def set_microstepping(self, value, force_update=False):
         """ Todo: Find an elegant way for this """
         EN_CFG1  = (1<<7)
         DIS_CFG1 = (0<<7)
@@ -151,13 +151,13 @@ class Stepper_00B1(Stepper):
         # update the Path class with new values
         stepper_num = Path.axis_to_index(self.name)
         Path.steps_pr_meter[stepper_num] = self.get_steps_pr_meter()
-        logging.debug("Updated stepper "+self.name+" to microstepping "+str(value)+" = "+str(self.microsteps))   
+        logging.debug("Updated stepper "+self.name+" to microstepping "+str(value)+" = "+str(self.microsteps))
 
 
     def set_current_value(self, i_rms):
         """ Current chopping limit (This is the value you can change) """
         self.current_value = i_rms
-        
+
         r_sense = 0.1020              # External resistors + internal
         sqrt_2 = 1.41421356237
 
@@ -186,12 +186,12 @@ class Stepper_00B2(Stepper_00B1):
         Stepper_00B1.__init__(self, stepPin, dirPin, faultPin, dac_channel, shiftreg_nr, name, internalStepPin, internalDirPin)
         self.dac    = PWM_DAC(dac_channel)
         self.state  = 0 # The initial state of shift register
-    
+
     def set_disabled(self, force_update=False):
         if not self.enabled:
             return
         logging.debug("Disabling stepper "+self.name)
-        # X, Y, Z steppers are on the first shift reg. Extruders have their own.  
+        # X, Y, Z steppers are on the first shift reg. Extruders have their own.
         if self.name in ["X", "Y", "Z"]:
             ShiftRegister.registers[0].add_state(0x1)
         elif self.name == "E":
@@ -204,9 +204,9 @@ class Stepper_00B2(Stepper_00B1):
         if self.enabled:
             return
         logging.debug("Enabling stepper "+self.name)
-        # X, Y, Z steppers are on the first shift reg. Extruders have their own.  
+        # X, Y, Z steppers are on the first shift reg. Extruders have their own.
         if self.name in ["X", "Y", "Z"]:
-            ShiftRegister.registers[0].remove_state(0x1) # First bit low. 
+            ShiftRegister.registers[0].remove_state(0x1) # First bit low.
         elif self.name == "E":
             ShiftRegister.registers[3].remove_state(0x1)
         elif self.name == "H":
@@ -215,14 +215,14 @@ class Stepper_00B2(Stepper_00B1):
 
 """
 The bits in the shift register are as follows (Rev A4) :
-Bit - name   - init val 
+Bit - name   - init val
 D0 = -		   = X
 D1 = MODE2   = 0
 D2 = MODE1   = 0
 D3 = MODE0   = 0
 D4 = nENABLE = 0  - Enabled
-D5 = DECAY   = 0  - Slow decay 
-D6 = nSLEEP  = 1  - Not sleeping 
+D5 = DECAY   = 0  - Slow decay
+D6 = nSLEEP  = 1  - Not sleeping
 D7 = nRESET  = 1  - Not in reset mode
 """
 
@@ -236,7 +236,7 @@ class Stepper_00A4(Stepper):
     def __init__(self, stepPin, dirPin, faultPin, dac_channel, shiftreg_nr, name, internalStepPin, internalDirPin):
         Stepper.__init__(self, stepPin, dirPin, faultPin, dac_channel, shiftreg_nr, name, internalStepPin, internalDirPin)
         self.dac        = DAC(dac_channel)
-        self.dacvalue 	= 0x00   	    # The voltage value on the VREF		
+        self.dacvalue 	= 0x00   	    # The voltage value on the VREF
         self.state      = (1<<Stepper_00A4.SLEEP)|(1<<Stepper_00A4.RESET)| (1<<Stepper_00A4.ENABLED) # The initial state of the inputs
         self.update()
 
@@ -274,9 +274,9 @@ class Stepper_00A4(Stepper):
         time.sleep(0.001)
         self.state |= (1 << Stepper_00A4.RESET)
         self.update()
-    
-    def set_microstepping(self, value, force_update=False):        
-        """ Microstepping (default = 0) 0 to 5 """        
+
+    def set_microstepping(self, value, force_update=False):
+        """ Microstepping (default = 0) 0 to 5 """
         if not value in [0, 1, 2, 3, 4, 5]: # Full, half, 1/4, 1/8, 1/16, 1/32.
             logging.warning("Tried to set illegal microstepping value: {0} for stepper {1}".format(value, self.name))
             return
@@ -290,6 +290,8 @@ class Stepper_00A4(Stepper):
         # update the Path class with new values
         stepper_num = Path.axis_to_index(self.name)
         Path.steps_pr_meter[stepper_num] = self.get_steps_pr_meter()
+        logging.debug("Updated stepper "+self.name+" to microstepping "+str(value)+" = "+str(self.microsteps))   
+
         self.update()
 
     def set_current_value(self, iChop):
@@ -308,7 +310,7 @@ class Stepper_00A4(Stepper):
 
     def update(self):
         # Invert shizzle
-        self.shift_reg.set_state(self.state)    
+        self.shift_reg.set_state(self.state)
         #logging.debug("Updated stepper {} to enabled, state: {}".format(self.name, bin(self.state)))
 
 
@@ -330,4 +332,3 @@ class Stepper_00A3(Stepper_00A4):
     Stepper.SLEEP = 5
     Stepper.RESET = 4
     Stepper.DECAY = 0
-

@@ -144,7 +144,8 @@ class Path:
             # Find the next angle positions
             self.end_ABC = Scara.inverse_kinematics(cur_pos[0] + vec[0],
                                        cur_pos[1] + vec[1],
-                                       cur_pos[2] + vec[2])
+                                       cur_pos[2] + vec[2]
+                                       )
             ret_vec[:3] = self.end_ABC - self.start_ABC
 
         # Apply Automatic bed compensation

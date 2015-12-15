@@ -30,6 +30,7 @@ from Delta import Delta
 from Scara import Scara
 from Printer import Printer
 import numpy as np
+import rpdb2
 
 try:
     from path_planner.PathPlannerNative import PathPlannerNative
@@ -356,12 +357,19 @@ class PathPlanner:
     def add_path(self, new):
         """ Add a path segment to the path planner """
         """ This code, and the native planner, needs to be updated for reach. """
+        #rpdb2.start_embedded_debugger(
+        #fAllowUnencrypted = True,
+        #"laydrop",
+        #fAllowRemote = True,
+        #timeout = rpdb2.TIMEOUT_FIVE_MINUTES,
+        #fDebug = True
+        #)
         # Link to the previous segment in the chain
         new.set_prev(self.prev)
         logging.debug("after set.prev")
         if new.compensation is not None:
             # Apply a backlash compensation move
-#           CompensationPath(new.compensation, new.speed, False, False, False))
+            # CompensationPath(new.compensation, new.speed, False, False, False))
             self.native_planner.queueMove(tuple(np.zeros(Path.NUM_AXES)[:4]),
                                           tuple(new.compensation[:4]), new.speed,
                                           bool(new.cancelable),
@@ -371,18 +379,22 @@ class PathPlanner:
         if new.needs_splitting():
 
             path_batch = new.get_delta_segments()
-            logging.debug("Batch Array %s", path_batch)
+            #logging.debug("Batch Array %s", path_batch)
             # Construct a batch
             batch_array = np.zeros(shape=(len(path_batch)*2*4),dtype=np.float64)     # Change this to reflect NUM_AXIS.
 
             for maj_index, path in enumerate(path_batch):
-                for subindex in range(4):  # this needs to be NUM_AXIS
-                    batch_array[(maj_index * 8) + subindex] = path.start_pos[subindex]
-                    batch_array[(maj_index * 8) + 4 + subindex] = path.stepper_end_pos[subindex]
-
+                for subindex in range(3):  # this needs to be NUM_AXIS
+                    if subindex==0:
+                        batch_array[(maj_index * 8) ] = (path.start_ABC[0]+path.start_ABC[1])/1000
+                        batch_array[(maj_index * 8) + 4 ] = (path.end_ABC[0]+path.end_ABC[1])/1000
+                    else:
+                        batch_array[(maj_index * 8) + subindex] = path.start_ABC[subindex]/1000
+                        batch_array[(maj_index * 8) + 4 + subindex] = path.end_ABC[subindex]/1000
+                logging.debug("ABC von:%9.5f,%9.5f,%9.5f bis:%9.5f,%9.5f,%9.5f"%(path.start_ABC[0],path.start_ABC[1],path.start_ABC[2],path.end_ABC[0],path.end_ABC[1],path.end_ABC[2]))
                 self.prev = path
                 self.prev.unlink()
-
+            logging.debug("Speed: %9.5f"%new.speed);
             # Queue the entire batch at once.
             self.printer.ensure_steppers_enabled()
             self.native_planner.queueBatchMove(batch_array, new.speed, bool(new.cancelable), bool(True))

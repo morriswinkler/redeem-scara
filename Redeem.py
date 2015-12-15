@@ -23,7 +23,6 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 
 Minor version tag is Arnold Schwarzenegger movies chronologically.
 """
-
 import glob
 import shutil
 import logging
@@ -38,7 +37,7 @@ import numpy as np
 import sys
 
 from Mosfet import Mosfet
-from Stepper import Stepper, Stepper_00A3, Stepper_00A4, Stepper_00B1, Stepper_00B2 
+from Stepper import Stepper, Stepper_00A3, Stepper_00A4, Stepper_00B1, Stepper_00B2
 from Thermistor import Thermistor
 from Fan import Fan
 from Servo import Servo
@@ -362,30 +361,30 @@ class Redeem:
         self.printer.path_planner = PathPlanner(self.printer, pru_firmware)
         for axis in printer.steppers.keys():
             i = Path.axis_to_index(axis)
-            
+
             # Sometimes soft_end_stop aren't defined to be at the exact hardware boundary.
             # Adding 100mm for searching buffer.
             if printer.config.has_option('Geometry', 'travel_' + axis.lower()):
                 printer.path_planner.travel_length[axis] = printer.config.getfloat('Geometry', 'travel_' + axis.lower())
             else:
                 printer.path_planner.travel_length[axis] = (Path.soft_max[i] - Path.soft_min[i]) + .1
-                if axis in ['X','Y','Z']:                
+                if axis in ['X','Y','Z']:
                     travel_default = True
-            
+
             if printer.config.has_option('Geometry', 'offset_' + axis.lower()):
                 printer.path_planner.center_offset[axis] = printer.config.getfloat('Geometry', 'offset_' + axis.lower())
             else:
                 printer.path_planner.center_offset[axis] =(Path.soft_min[i] if Path.home_speed[i] > 0 else Path.soft_max[i])
-                if axis in ['X','Y','Z']:                
+                if axis in ['X','Y','Z']:
                     center_default = True
 
             if printer.config.has_option('Homing', 'home_' + axis.lower()):
                 printer.path_planner.home_pos[axis] = printer.config.getfloat('Homing', 'home_' + axis.lower())
             else:
                 printer.path_planner.home_pos[axis] = printer.path_planner.center_offset[axis]
-                if axis in ['X','Y','Z']:                   
+                if axis in ['X','Y','Z']:
                     home_default = True
-                
+
         if Path.axis_config == Path.AXIS_CONFIG_DELTA:
             if travel_default:
                 logging.warning("Axis travel (travel_*) set by soft limits, manual setup is recommended for a delta")
@@ -433,7 +432,7 @@ class Redeem:
                 # home offset is defined in cartesian space
 
                 xyz = np.array([printer.path_planner.home_pos['X'],printer.path_planner.home_pos['Y'],printer.path_planner.home_pos['Z']])
-                
+
                 # The default home_pos, provided above, is based on effector space
                 # coordinates for carriage positions. We need to transform these to
                 # get where the effector actually is.
@@ -566,6 +565,8 @@ class Redeem:
 
 def main():
     # Create Redeem
+
+
     r = Redeem()
 
     def signal_handler(signal, frame):
