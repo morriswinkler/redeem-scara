@@ -391,6 +391,8 @@ class PathPlanner:
                     else:
                         batch_array[(maj_index * 8) + subindex] = path.start_ABC[subindex]/1000
                         batch_array[(maj_index * 8) + 4 + subindex] = path.end_ABC[subindex]/1000
+                batch_array[(maj_index * 8) +3] = path.start_ABC[2]/1000
+                batch_array[(maj_index * 8) + 4 +3] = path.end_ABC[2]/1000
                 logging.debug("ABC von:%9.5f,%9.5f,%9.5f bis:%9.5f,%9.5f,%9.5f"%(path.start_ABC[0],path.start_ABC[1],path.start_ABC[2],path.end_ABC[0],path.end_ABC[1],path.end_ABC[2]))
                 self.prev = path
                 self.prev.unlink()
