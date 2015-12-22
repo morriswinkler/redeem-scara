@@ -35,6 +35,7 @@ from multiprocessing import JoinableQueue
 import Queue
 import numpy as np
 import sys
+import time
 
 from Mosfet import Mosfet
 from Stepper import Stepper, Stepper_00A3, Stepper_00A4, Stepper_00B1, Stepper_00B2
@@ -60,6 +61,9 @@ from Scara import Scara
 from Enable import Enable
 from PWM import PWM
 
+
+
+
 version = "1.0.4~Commando"
 
 # Default logging level is set to debug
@@ -77,6 +81,14 @@ version = "1.0.4~Commando"
 #
 # first step toward an log file mechnism
 #
+
+def epoc_time(record, datefmt=None, dateArg3=Non):
+        return ("[ %d ]"%(time.time()*1000))
+
+
+logging.Formatter.formatTime = epoc_time
+
+
 logging.basicConfig(filename="/var/log/redeem/redeem.log",
                     level=logging.DEBUG,
                      format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
