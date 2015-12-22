@@ -24,7 +24,7 @@ class Scara:
         """
         # add tower offset
         coordReal = np.array([X, Y, Z])
-        coord = np.array([round(X*1000,0) - Scara.X_toweroffset, round(Y*1000,0) + -Scara.Y_toweroffset, round(Z*1000,0)])
+        coord = np.array([X*1000 - Scara.X_toweroffset, Y*1000 + -Scara.Y_toweroffset, Z*1000])
         # http://www.deltatau.com/Common/technotes/SCARA%20Robot%20Kinematics.pdf
 
         # calculate y distance from tower to the target x,y
