@@ -82,7 +82,7 @@ version = "1.0.4~Commando"
 # first step toward an log file mechnism
 #
 
-def epoc_time(record, datefmt=None, dateArg3=Non):
+def epoc_time(record, datefmt=None, dateArg3=None):
         return ("[ %d ]"%(time.time()*1000))
 
 
