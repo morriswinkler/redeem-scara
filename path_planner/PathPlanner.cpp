@@ -1,27 +1,27 @@
 /*
  This file is part of Redeem - 3D Printer control software
- 
+
  Author: Mathieu Monney
  Website: http://www.xwaves.net
  License: GNU GPLv3 http://www.gnu.org/copyleft/gpl.html
- 
- 
+
+
  This file is based on Repetier-Firmware licensed under GNU GPL v3 and
  available at https://github.com/repetier/Repetier-Firmware
- 
+
  Redeem is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  Redeem is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
- 
+
  */
 
 #include "PathPlanner.h"
@@ -72,9 +72,9 @@ void Extruder::recomputeParameters() {
 
 void PathPlanner::setExtruder(int extNr){
 	assert(extNr<NUM_EXTRUDER);
-	
+
     currentExtruder = extruders+extNr;
-	
+
 	maxFeedrate[E_AXIS] = currentExtruder->maxFeedrate;
 	maxPrintAccelerationStepsPerSquareSecond[E_AXIS] = currentExtruder->maxPrintAccelerationStepsPerSquareSecond;
 	maxTravelAccelerationStepsPerSquareSecond[E_AXIS] = currentExtruder->maxTravelAccelerationStepsPerSquareSecond;
@@ -141,18 +141,18 @@ void PathPlanner::recomputeParameters() {
         /** Acceleration in steps/s^2 in movement mode.*/
         maxTravelAccelerationStepsPerSquareSecond[i] = maxTravelAccelerationMMPerSquareSecond[i] * (axisStepsPerMM[i]);
     }
-	
-	
+
+
 	FLOAT_T accel = std::max(maxAccelerationMMPerSquareSecond[X_AXIS],maxTravelAccelerationMMPerSquareSecond[X_AXIS]);
     minimumSpeed = accel*sqrt(2.0f/(axisStepsPerMM[X_AXIS]*accel));
     accel = std::max(maxAccelerationMMPerSquareSecond[Z_AXIS],maxTravelAccelerationMMPerSquareSecond[Z_AXIS]);
     minimumZSpeed = accel*sqrt(2.0f/(axisStepsPerMM[Z_AXIS]*accel));
-	
+
 }
 
 void PathPlanner::setDriveSystem(int driveSystem){
     this->driveSystem = driveSystem;
-}	
+}
 
 
 PathPlanner::PathPlanner(unsigned int cacheSize) {
@@ -163,13 +163,13 @@ PathPlanner::PathPlanner(unsigned int cacheSize) {
 	lines.resize(moveCacheSize);
 
 	//Default settings for debug mode
-	
+
 	static_assert(NUM_EXTRUDER>0,"Invalid number of extruder");
-	
+
 	for(unsigned int i=0;i<NUM_EXTRUDER;i++) {
 		extruders[i].setStepperCommandPosition(i+3);
 	}
-	
+
 	maxJerk =20;
 	maxZJerk= 0.3;
 
@@ -179,24 +179,24 @@ PathPlanner::PathPlanner(unsigned int cacheSize) {
 
 
 	recomputeParameters();
-	
+
 	linesCount = 0;
 	linesTicksCount = 0;
 
 	currentExtruder = &extruders[0];
-    driveSystem = 0; 
-	
+    driveSystem = 0;
+
 	stop = false;
 }
 
 bool PathPlanner::queueSyncEvent(bool isBlocking /* = true */)
 {
 #ifdef BUILD_PYTHON_EXT
-	PyThreadState *_save; 
+	PyThreadState *_save;
 	_save = PyEval_SaveThread();
 #endif
 	// If the move command buffer isn't empty, make the last line a sync event
-	{	
+	{
 		std::unique_lock<std::mutex> lk(line_mutex);
 		if(linesCount > 0)
 		{
@@ -222,7 +222,7 @@ int PathPlanner::waitUntilSyncEvent()
 {
     int ret;
 #ifdef BUILD_PYTHON_EXT
-	PyThreadState *_save; 
+	PyThreadState *_save;
 	_save = PyEval_SaveThread();
 #endif
 
@@ -234,12 +234,12 @@ int PathPlanner::waitUntilSyncEvent()
 #endif
     return ret;
 }
-                     
+
 void PathPlanner::clearSyncEvent()
 {
 
 #ifdef BUILD_PYTHON_EXT
-	PyThreadState *_save; 
+	PyThreadState *_save;
 	_save = PyEval_SaveThread();
 #endif
 
@@ -255,14 +255,14 @@ void PathPlanner::clearSyncEvent()
 
 void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T speed, bool cancelable, bool optimize /* = true */) {
     FLOAT_T axis_diff[NUM_AXIS]; // Axis movement in mm
-	
+
 
 #ifdef BUILD_PYTHON_EXT
-	PyThreadState *_save; 
+	PyThreadState *_save;
 	_save = PyEval_SaveThread();
 #endif
         int numSegments = batchSize / (2 * NUM_AXIS);
-	//LOG( "Batching " << numSegments << " segments." << std::endl);
+	LOG( "Batching " << numSegments << " segments." << std::endl);
 
 	unsigned int linesQueued = 0;
 	unsigned int linesCacheRemaining = 0;
@@ -272,24 +272,24 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 	// Process each segment
 	for(int segment_index = 0; segment_index < numSegments; segment_index++)
 	{
-               
+
 		// wait for the worker
 		if(linesCacheRemaining == 0 || linesTicksRemaining == 0)
 		{
 			std::unique_lock<std::mutex> lk(line_mutex);
 			//LOG( "Waiting for free move command space... Current: " << moveCacheSize - linesCount << std::endl);
 			lineAvailable.wait(lk, [this]{
-                return 
-                    stop || 
+                return
+                    stop ||
                     (linesCount < moveCacheSize && !isLinesBufferFilled());
             });
 			linesCacheRemaining = moveCacheSize - linesCount;
             linesTicksRemaining = maxBufferedMoveTime - linesTicksCount;
 		}
-	
+
 		if(stop)
 		{
-	
+
 #ifdef BUILD_PYTHON_EXT
 		        PyEval_RestoreThread(_save);
 #endif
@@ -304,48 +304,48 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 		memcpy(p->startPos, /* startPos */ &batchData[segment_index * 2 * NUM_AXIS], sizeof(FLOAT_T)*NUM_AXIS);
 		memcpy(p->endPos, /* endPos */ &batchData[segment_index * 2 * NUM_AXIS + NUM_AXIS], sizeof(FLOAT_T)*NUM_AXIS);
 
-		
+
 		//Convert meters to mm
 		for(uint8_t axis=0; axis < NUM_AXIS; axis++)
 		{
 			p->startPos[axis]*=1000.0;
 			p->endPos[axis]*=1000.0;
 		}
-		
+
 		p->speed = speed*1000; //Speed is in m/s
 		p->joinFlags = 0;
 		p->flags = 0;
 		p->setCancelable(cancelable);
-		
+
 		p->setWaitMS(optimize ? printMoveBufferWait : 0);
-	
+
 		p->dir = 0;
-		
+
 		//Find direction
 		for(uint8_t axis=0; axis < NUM_AXIS; axis++)
 		{
 			p->startPos[axis] = ceil(p->startPos[axis]*axisStepsPerMM[axis]);
 			p->endPos[axis] = ceil(p->endPos[axis]*axisStepsPerMM[axis]);
-			
+
 		        if((p->delta[axis]=p->endPos[axis]-p->startPos[axis])>=0)
 				p->setPositiveDirectionForAxis(axis);
 			else
 				p->delta[axis] = -p->delta[axis];
-			
+
 			axis_diff[axis] = p->delta[axis] * invAxisStepsPerMM[axis];
-			if(p->delta[axis]) 
+			if(p->delta[axis])
 				p->setMoveOfAxis(axis);
-			
+
 		}
-		
+
 		if(p->isNoMove())
 		{
 			LOG( "Warning: no move path" << std::endl);
 			continue; // No steps included
 		}
-		
+
 		//LOG( "Warning: Doing the breshnam thing" << std::endl);
-	
+
 		//Define variables that are needed for the Bresenham algorithm. Please note that  Z is not currently included in the Bresenham algorithm.
 		if(p->delta[Y_AXIS] > p->delta[X_AXIS] && p->delta[Y_AXIS] > p->delta[Z_AXIS] && p->delta[Y_AXIS] > p->delta[E_AXIS])
 			p->primaryAxis = Y_AXIS;
@@ -355,9 +355,9 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 			p->primaryAxis = Z_AXIS;
 		else
 			p->primaryAxis = E_AXIS;
-		
+
 		p->stepsRemaining = p->delta[p->primaryAxis];
-	    
+
 		if(p->isXYZMove())
 		{
 			FLOAT_T xydist2 = axis_diff[X_AXIS] * axis_diff[X_AXIS] + axis_diff[Y_AXIS] * axis_diff[Y_AXIS];
@@ -368,7 +368,7 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 		}
 		else
 			p->distance = fabs(axis_diff[E_AXIS]);
-		
+
 		calculateMove(p,axis_diff);
 		updateTrapezoids();
 
@@ -379,15 +379,15 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 
         linesTicksQueued += p->timeInTicks;
         linesTicksRemaining -= p->timeInTicks;
-		
+
 		if(linesWritePos>=moveCacheSize)
 			linesWritePos = 0;
-		
+
 		// Notify the run() thread to work
         //   when queue is full, or at the end of this batch.
-		if((linesCacheRemaining == 0) || 
+		if((linesCacheRemaining == 0) ||
             ((segment_index + 1) == numSegments) ||
-            linesTicksRemaining <= 0)	
+            linesTicksRemaining <= 0)
 		{
 			{
                 std::lock_guard<std::mutex> lk(line_mutex);
@@ -417,7 +417,7 @@ void PathPlanner::queueMove(FLOAT_T startPos[NUM_AXIS],FLOAT_T endPos[NUM_AXIS],
 
 	memcpy(temp, startPos, sizeof(FLOAT_T)*NUM_AXIS);
 	memcpy(&temp[NUM_AXIS], endPos, sizeof(FLOAT_T)*NUM_AXIS);
-	
+
 	queueBatchMove( temp, NUM_AXIS*2, speed, cancelable, optimize);
 
 }
@@ -425,7 +425,7 @@ void PathPlanner::queueMove(FLOAT_T startPos[NUM_AXIS],FLOAT_T endPos[NUM_AXIS],
 FLOAT_T PathPlanner::safeSpeed(Path* p)
 {
     FLOAT_T safe = maxJerk * 0.5;
-	
+
     if(p->isZMove())
     {
         if(p->primaryAxis == Z_AXIS)
@@ -435,7 +435,7 @@ FLOAT_T PathPlanner::safeSpeed(Path* p)
         else if(fabs(p->speedZ) > maxZJerk * 0.5)
             safe = std::min(safe,(FLOAT_T)(maxZJerk * 0.5 * p->fullSpeed / fabs(p->speedZ)));
     }
-	
+
     if(p->isEMove())
     {
         if(p->isXYZMove())
@@ -456,20 +456,20 @@ void PathPlanner::calculateMove(Path* p,FLOAT_T axis_diff[NUM_AXIS])
 {
     unsigned int axisInterval[NUM_AXIS];
 	FLOAT_T timeForMove = (FLOAT_T)(F_CPU)*p->distance / (p->isXOrYMove() ? std::max(minimumSpeed,p->speed): p->speed); // time is in ticks
-	
+
 /*
 	 #define MOVE_CACHE_LOW 512
 	 if(linesCount < MOVE_CACHE_LOW)   // Limit speed to keep cache full.
 	 {
 	 #define LOW_TICKS_PER_MOVE F_CPU/50
-	 
+
 	 timeForMove += (3 * (LOW_TICKS_PER_MOVE-timeForMove)) / (linesCount+1); // Increase time if queue gets empty. Add more time if queue gets smaller.
 	 }
 */
 
-	
+
     p->timeInTicks = timeForMove;
-	
+
     // Compute the solwest allowed interval (ticks/step), so maximum feedrate is not violated
     unsigned int limitInterval = timeForMove/p->stepsRemaining; // until not violated by other constraints it is your target speed
     if(p->isXMove())
@@ -496,9 +496,9 @@ void PathPlanner::calculateMove(Path* p,FLOAT_T axis_diff[NUM_AXIS])
         limitInterval = std::max(axisInterval[E_AXIS],limitInterval);
     }
     else axisInterval[E_AXIS] = 0;
-	
+
     p->fullInterval = limitInterval; // = limitInterval>LIMIT_INTERVAL ? limitInterval : LIMIT_INTERVAL; // This is our target speed
-	
+
     // new time at full speed = limitInterval*p->stepsRemaining [ticks]
     timeForMove = (FLOAT_T)limitInterval * (FLOAT_T)p->stepsRemaining; // for large z-distance this overflows with long computation
     FLOAT_T inv_time_s = (FLOAT_T)F_CPU / timeForMove;
@@ -529,11 +529,11 @@ void PathPlanner::calculateMove(Path* p,FLOAT_T axis_diff[NUM_AXIS])
         p->speedE = axis_diff[E_AXIS] * inv_time_s;
         if(p->isENegativeMove()) p->speedE = -p->speedE;
     }
-	
+
     p->fullSpeed = p->distance * inv_time_s;
     //long interval = axis_interval[primary_axis]; // time for every step in ticks with full speed
     //If acceleration is enabled, do some Bresenham calculations depending on which axis will lead it.
-	
+
     // slowest time to accelerate from v0 to limitInterval determines used acceleration
     // t = (v_end-v_start)/a
     FLOAT_T slowest_axis_plateau_time_repro = 1e15; // repro to reduce division Unit: 1/s
@@ -555,15 +555,15 @@ void PathPlanner::calculateMove(Path* p,FLOAT_T axis_diff[NUM_AXIS])
     // Can accelerate to full speed within the line
     if (p->startSpeed * p->startSpeed + p->accelerationDistance2 >= p->fullSpeed * p->fullSpeed)
         p->setNominalMove();
-	
-    p->vMax = F_CPU / p->fullInterval; // maximum steps per second, we can reach   
+
+    p->vMax = F_CPU / p->fullInterval; // maximum steps per second, we can reach
     // how much steps on primary axis do we need to reach target feedrate
     //p->plateauSteps = (long) (((FLOAT_T)p->acceleration *0.5f / slowest_axis_plateau_time_repro + p->vMin) *1.01f/slowest_axis_plateau_time_repro);
-	
+
 }
 
 /** Update parameter used by updateTrapezoids
- 
+
  Computes the acceleration/decelleration steps and advanced parameter associated.
  */
 void Path::updateStepsParameter()
@@ -576,8 +576,8 @@ void Path::updateStepsParameter()
     uint64_t vmax2 = static_cast<uint64_t>(vMax) * static_cast<uint64_t>(vMax);
     accelSteps = (unsigned int)(((vmax2 - static_cast<uint64_t>(vStart) * static_cast<uint64_t>(vStart)) / (accelerationPrim<<1)) + 1); // Always add 1 for missing precision
     decelSteps = (unsigned int)(((vmax2 - static_cast<uint64_t>(vEnd) * static_cast<uint64_t>(vEnd))  /(accelerationPrim<<1)) + 1);
-	
-	
+
+
     if(accelSteps+decelSteps >= stepsRemaining)   // can't reach limit speed
     {
         unsigned int red = (accelSteps+decelSteps + 2 - stepsRemaining) >> 1;
@@ -592,12 +592,12 @@ void Path::updateStepsParameter()
 
 /**
  This is the path planner.
- 
+
  It goes from the last entry and tries to increase the end speed of previous moves in a fashion that the maximum jerk
  is never exceeded. If a segment with reached maximum speed is met, the planner stops. Everything left from this
  is already optimal from previous updates.
  The first 2 entries in the queue are not checked. The first is the one that is already in print and the following will likely become active.
- 
+
  The method is called before lines_count is increased!
  */
 void PathPlanner::updateTrapezoids()
@@ -632,7 +632,7 @@ void PathPlanner::updateTrapezoids()
     unsigned int previousIndex = linesWritePos;
     previousPlannerIndex(previousIndex);
     Path *previous = &lines[previousIndex];
-	
+
     // filters z-move<->not z-move
     if(driveSystem != 3 && ((previous->primaryAxis == Z_AXIS && act->primaryAxis != Z_AXIS) || (previous->primaryAxis != Z_AXIS && act->primaryAxis == Z_AXIS)) )
     {
@@ -642,8 +642,8 @@ void PathPlanner::updateTrapezoids()
         firstLine->unblock();
         return;
     }
-	
-	
+
+
     computeMaxJunctionSpeed(previous,act); // Set maximum junction speed if we have a real move before
     if(previous->isEOnlyMove() != act->isEOnlyMove())
     {
@@ -656,7 +656,7 @@ void PathPlanner::updateTrapezoids()
     backwardPlanner(linesWritePos,first);
     // Reduce speed to reachable speeds
     forwardPlanner(first);
-	
+
     // Update precomputed data
     do
     {
@@ -682,13 +682,13 @@ void PathPlanner::computeMaxJunctionSpeed(Path *previous,Path *current)
     FLOAT_T jerk = sqrt(dx*dx + dy*dy + dz*dz);
     if(jerk>maxJerk)
         factor = maxJerk / jerk;
-	
+
     if(driveSystem != 3 && ((previous->dir | current->dir) & 64))
     {
         if(dz>maxZJerk)
             factor = std::min(factor,maxZJerk / dz);
     }
-	
+
     FLOAT_T eJerk = fabs(current->speedE - previous->speedE);
     if(eJerk > currentExtruder->maxStartFeedrate)
         factor = std::min(factor,currentExtruder->maxStartFeedrate / eJerk);
@@ -700,7 +700,7 @@ void PathPlanner::computeMaxJunctionSpeed(Path *previous,Path *current)
 /**
  Compute the maximum speed from the last entered move.
  The backwards planner traverses the moves from last to first looking at deceleration. The RHS of the accelerate/decelerate ramp.
- 
+
  start = last line inserted
  last = last element until we check
  */
@@ -708,13 +708,13 @@ void PathPlanner::backwardPlanner(unsigned int start, unsigned int last)
 {
     Path *act = &lines[start],*previous;
     FLOAT_T lastJunctionSpeed = act->endSpeed; // Start always with safe speed
-	
+
     //PREVIOUS_PLANNER_INDEX(last); // Last element is already fixed in start speed
     while(start != last)
     {
         previousPlannerIndex(start);
         previous = &lines[start];
-		
+
         // Avoid speed calcs if we know we can accelerate within the line
         lastJunctionSpeed = (act->isNominalMove() ? act->fullSpeed : sqrt(lastJunctionSpeed * lastJunctionSpeed + act->accelerationDistance2)); // acceleration is acceleration*distance*2! What can be reached if we try?
         // If that speed is more that the maximum junction speed allowed then ...
@@ -757,7 +757,7 @@ void PathPlanner::forwardPlanner(unsigned int first)
         act = next;
         nextPlannerIndex(first);
         next = &lines[first];
-		
+
         // Avoid speed calcs if we know we can accelerate within the line.
         vmaxRight = (act->isNominalMove() ? act->fullSpeed : sqrt(leftSpeed * leftSpeed + act->accelerationDistance2));
         if(vmaxRight > act->endSpeed)   // Could be higher next run?
@@ -797,9 +797,9 @@ void PathPlanner::forwardPlanner(unsigned int first)
 
 void PathPlanner::runThread() {
 	stop=false;
-	
+
 	pru.runThread();
-	
+
 	runningThread = std::thread([this]() {
 		this->run();
 	});
@@ -810,7 +810,7 @@ void PathPlanner::stopThread(bool join) {
     Py_BEGIN_ALLOW_THREADS
 #endif
 	pru.stopThread(join);
-	
+
 	stop=true;
 	lineAvailable.notify_all();
 	if(join && runningThread.joinable()) {
@@ -832,12 +832,12 @@ void PathPlanner::waitUntilFinished() {
 #ifdef BUILD_PYTHON_EXT
     Py_BEGIN_ALLOW_THREADS
 #endif
-    
+
 	std::unique_lock<std::mutex> lk(line_mutex);
 	lineAvailable.wait(lk, [this]{
         return linesCount==0 || stop;
     });
-	
+
 	//Wait for PruTimer then
 	if(!stop) {
 		pru.waitUntilFinished();
@@ -852,56 +852,56 @@ void PathPlanner::reset() {
 }
 
 void PathPlanner::run() {
-	
+
 	bool waitUntilFilledUp = true;
-	
+
 	while(!stop) {
-		
+
 		std::unique_lock<std::mutex> lk(line_mutex);
-		
+
 		lineAvailable.wait(lk, [this]{return linesCount>0 || stop;});
-		
+
 		Path* cur = &lines[linesPos];
-		
+
 		//If the buffer is half or more empty and the line to print is an optimized one , wait for 500 ms again so that we can get some other path in the path planner buffer, and we do that until the buffer is not anymore half empty.
 		if(!isLinesBufferFilled() && cur->getWaitMS()>0 && waitUntilFilledUp) {
 			unsigned lastCount = 0;
 			//~ LOG("Waiting for buffer to fill up... " << linesCount  << " lines pending " << lastCount << std::endl);
 			do {
 				lastCount = linesCount;
-				
+
 				lineAvailable.wait_for(lk,  std::chrono::milliseconds(printMoveBufferWait), [this,lastCount]{return linesCount>lastCount || stop;});
-				
+
 			} while(lastCount<linesCount && linesCount<moveCacheSize && !stop);
 			//~ LOG("Done waiting for buffer to fill up... " << linesCount  << " lines ready. " << lastCount << std::endl);
-			
+
 			waitUntilFilledUp = false;
 		}
-		
+
 		//The buffer is empty, we enable again the "wait until buffer is enough full" timing procedure.
 		if(linesCount<=1) {
 			waitUntilFilledUp = true;
 			LOG("### Move Command Buffer Empty ###" << std::endl);
 
 		}
-		
-		
+
+
 		lk.unlock();
-		
+
 		if(!linesCount || stop){
 			continue;
 		}
-		
-		
-		
-		
+
+
+
+
 		long cur_errupd=0;
 		uint8_t directionMask = 0; //0b000HEZYX
 		uint8_t cancellableMask;
 		unsigned long vMaxReached;
         unsigned long timer_accel = 0;
 		unsigned long timer_decel = 0;
-		
+
 		if(cur->isBlocked())   // This step is in computation - shouldn't happen
 		{
 			cur = NULL;
@@ -909,7 +909,7 @@ void PathPlanner::run() {
 			std::this_thread::sleep_for( std::chrono::milliseconds(100) );
 			continue;
 		}
-		
+
 		//Only enable axis that are moving. If the axis doesn't need to move then it can stay disabled depending on configuration.
 		cur->fixStartAndEndSpeed();
 		cur_errupd = cur->delta[cur->primaryAxis];
@@ -918,7 +918,7 @@ void PathPlanner::run() {
             LOG( "Path planner thread: Need to update paramters! This should not happen!" << std::endl);
 			cur->updateStepsParameter();
 		}
-		
+
 		vMaxReached = cur->vStart;
 
         // reset commands buffer every time
@@ -930,26 +930,26 @@ void PathPlanner::run() {
 		directionMask|=((uint8_t)cur->isYPositiveMove() << Y_AXIS);
 		directionMask|=((uint8_t)cur->isZPositiveMove() << Z_AXIS);
 		directionMask|=((uint8_t)(cur->isEPositiveMove() ^ currentExtruder->directionInverted) << currentExtruder->stepperCommandPosition);
-		
+
 		cancellableMask = 0;
-		
+
 		if(cur->isCancelable()) {
 			cancellableMask|=((uint8_t)cur->isXMove() << X_AXIS);
 			cancellableMask|=((uint8_t)cur->isYMove() << Y_AXIS);
 			cancellableMask|=((uint8_t)cur->isZMove() << Z_AXIS);
 			cancellableMask|=((uint8_t)cur->isEMove() << currentExtruder->stepperCommandPosition);
 		}
-		
+
 		assert(cur);
 		assert(cur->commands);
-		
-		
-		
+
+
+
 		for(unsigned int stepNumber=0; stepNumber<cur->stepsRemaining; stepNumber++){
 			SteppersCommand& cmd = cur->commands.at(stepNumber);
 			cmd.direction = directionMask;
 			cmd.cancellableMask = cancellableMask;
-			
+
 			if((stepNumber == cur->stepsRemaining - 1) && cur->isSyncEvent())
 			{
 				if(cur->isSyncWaitEvent())
@@ -957,7 +957,7 @@ void PathPlanner::run() {
 				else
 					cmd.options = STEPPER_COMMAND_OPTION_SYNC_EVENT;
 			}
-			else 
+			else
 				cmd.options = 0;
 
 			cmd.step = 0;
@@ -985,7 +985,7 @@ void PathPlanner::run() {
 					cur->error[Y_AXIS] += cur_errupd;
 				}
 			}
-			
+
 			if(cur->isZMove())
 			{
 				if((cur->error[Z_AXIS] -= cur->delta[Z_AXIS]) < 0)
@@ -994,11 +994,11 @@ void PathPlanner::run() {
 					cur->error[Z_AXIS] += cur_errupd;
 				}
 			}
-			
+
 #define ComputeV(timer,accel)  (((timer>>8)*accel)>>10)
-			
+
 			unsigned long interval;
-			
+
 			//If acceleration is enabled on this move and we are in the acceleration segment, calculate the current interval
 			if (cur->moveAccelerating(stepNumber))   // we are accelerating
 			{
@@ -1018,7 +1018,7 @@ void PathPlanner::run() {
 					if (v < cur->vEnd)
                         v = cur->vEnd; // extra steps at the end of desceleration due to rounding erros
 				}
-				
+
 				interval = F_CPU/(v);
 				timer_decel += interval;
 			}
@@ -1027,25 +1027,25 @@ void PathPlanner::run() {
 				// constant speed reached
 				interval = cur->fullInterval;
 			}
-			
+
 			assert(interval < F_CPU*4);
 			cmd.delay = (uint32_t)interval;
 		} // stepsRemaining
 
-		
+
 		//LOG("Current move time " << pru.getTotalQueuedMovesTime() / (double) F_CPU << std::endl);
-		
+
 		//Wait until we need to push some lines so that the path planner can fill up
 		pru.waitUntilLowMoveTime((F_CPU/1000)*minBufferedMoveTime); //in seconds
-		
+
 		//LOG( "Sending " << std::dec << linesPos << ", Start speed=" << cur->startSpeed << ", end speed="<<cur->endSpeed << ", nb steps = " << cur->stepsRemaining << std::endl);
-		
+
 		pru.push_block((uint8_t*)cur->commands.data(), sizeof(SteppersCommand)*cur->stepsRemaining, sizeof(SteppersCommand),linesPos,cur->timeInTicks);
-		
+
 		// LOG( "Done sending with " << std::dec << linesPos << std::endl);
-		
+
 		removeCurrentLine();
-		
+
 		lineAvailable.notify_all();
 	}
 }
