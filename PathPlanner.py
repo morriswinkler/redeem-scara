@@ -30,7 +30,7 @@ from Delta import Delta
 from Scara import Scara
 from Printer import Printer
 import numpy as np
-import rpdb2
+# import rpdb2
 
 try:
     from path_planner.PathPlannerNative import PathPlannerNative
@@ -391,6 +391,8 @@ class PathPlanner:
                     else:
                         batch_array[(maj_index * 8) + subindex] = path.start_ABC[subindex]/1000
                         batch_array[(maj_index * 8) + 4 + subindex] = path.end_ABC[subindex]/1000
+                batch_array[(maj_index * 8) +3] = path.start_ABC[2]/1000
+                batch_array[(maj_index * 8) + 4 +3] = path.end_ABC[2]/1000
                 logging.debug("ABC von:%9.5f,%9.5f,%9.5f bis:%9.5f,%9.5f,%9.5f"%(path.start_ABC[0],path.start_ABC[1],path.start_ABC[2],path.end_ABC[0],path.end_ABC[1],path.end_ABC[2]))
                 self.prev = path
                 self.prev.unlink()
@@ -405,10 +407,20 @@ class PathPlanner:
             return
 
         if not new.is_G92():
+            # rpdb2.start_embedded_debugger(
+            # "laydrop",
+            # fAllowUnencrypted = True,
+            # fAllowRemote = True,
+            # timeout = rpdb2.TIMEOUT_FIVE_MINUTES,
+            # fDebug = True
+            # )
             self.printer.ensure_steppers_enabled()
             #push this new segment
-            self.native_planner.queueMove(tuple(new.start_pos[:4]),
-                                      tuple(new.stepper_end_pos[:4]), new.speed,
+            start= np.array([new.start_ABC[0]/1000,new.start_ABC[1]/1000,new.start_ABC[2]/1000,new.start_ABC[2]/1000])
+            end  = np.array([new.end_ABC[0]/1000,  new.end_ABC[1]/1000,  new.end_ABC[2]/1000,  new.end_ABC[2]/1000])
+            # logging.critical("L-Start:%02d L-End;%02d"%(len(start),len(end)))
+            self.native_planner.queueMove(tuple(start),
+                                      tuple(end), new.speed,
                                       bool(new.cancelable),
                                       bool(new.movement != Path.RELATIVE))
 
