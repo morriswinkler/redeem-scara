@@ -277,7 +277,7 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 		if(linesCacheRemaining == 0 || linesTicksRemaining == 0)
 		{
 			std::unique_lock<std::mutex> lk(line_mutex);
-			//LOG( "Waiting for free move command space... Current: " << moveCacheSize - linesCount << std::endl);
+			LOG( "Waiting for free move command space... Current: " << moveCacheSize - linesCount << std::endl);
 			lineAvailable.wait(lk, [this]{
                 return
                     stop ||
@@ -344,7 +344,7 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
 			continue; // No steps included
 		}
 
-		//LOG( "Warning: Doing the breshnam thing" << std::endl);
+		LOG( "Warning: Doing the breshnam thing" << std::endl);
 
 		//Define variables that are needed for the Bresenham algorithm. Please note that  Z is not currently included in the Bresenham algorithm.
 		if(p->delta[Y_AXIS] > p->delta[X_AXIS] && p->delta[Y_AXIS] > p->delta[Z_AXIS] && p->delta[Y_AXIS] > p->delta[E_AXIS])
@@ -398,7 +398,7 @@ void PathPlanner::queueBatchMove(FLOAT_T* batchData, int batchSize, FLOAT_T spee
             linesTicksQueued = 0;
 			lineAvailable.notify_all();
 		}
-		//LOG( "Line finished (" << linesQueued << "lines ready)." << std::endl);
+		LOG( "Line finished (" << linesQueued << "lines ready)." << std::endl);
 	}
 
 	//LOG( "End batch queuing move command" << std::endl);
@@ -866,14 +866,14 @@ void PathPlanner::run() {
 		//If the buffer is half or more empty and the line to print is an optimized one , wait for 500 ms again so that we can get some other path in the path planner buffer, and we do that until the buffer is not anymore half empty.
 		if(!isLinesBufferFilled() && cur->getWaitMS()>0 && waitUntilFilledUp) {
 			unsigned lastCount = 0;
-			//~ LOG("Waiting for buffer to fill up... " << linesCount  << " lines pending " << lastCount << std::endl);
+			LOG("Waiting for buffer to fill up... " << linesCount  << " lines pending " << lastCount << std::endl);
 			do {
 				lastCount = linesCount;
 
 				lineAvailable.wait_for(lk,  std::chrono::milliseconds(printMoveBufferWait), [this,lastCount]{return linesCount>lastCount || stop;});
 
 			} while(lastCount<linesCount && linesCount<moveCacheSize && !stop);
-			//~ LOG("Done waiting for buffer to fill up... " << linesCount  << " lines ready. " << lastCount << std::endl);
+			LOG("Done waiting for buffer to fill up... " << linesCount  << " lines ready. " << lastCount << std::endl);
 
 			waitUntilFilledUp = false;
 		}

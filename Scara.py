@@ -1,6 +1,7 @@
 import numpy as np  # Needed for sqrt
 import logging
 import math
+import time
 
 
 class Scara:
@@ -85,7 +86,17 @@ class Scara:
         return np.array([x, y, z])
 
 
+t= time.clock()
 
+for i in range(1,20000):
+    ABC = Scara.inverse_kinematics(0.1,0.14,0.1)
+# print(t)
+# print(Scara.forward_kinematics(t[0],t[1],t[2]))
+# t = Scara.inverse_kinematics(192.4,177.22,0)
+# print(t)
+    XYZ=Scara.forward_kinematics(ABC[0],ABC[1],ABC[2])
+
+print time.clock() - t
 # t = Scara.inverse_kinematics(0,0,0)
 # print(t)
 # print(Scara.forward_kinematics(t[0],t[1],t[2]))
